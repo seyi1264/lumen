@@ -422,7 +422,7 @@ function AutopilotPage() {
       {schedulerStorageIsTemporary && (
         <section className="mt-6">
           <Card className="p-4 text-sm text-muted">
-            Scheduler storage is temporary in this preview. Deployment provisions Neon for durable, per-user jobs.
+            Scheduler storage is temporary in this preview. Deployment provisions Supabase Postgres for durable, per-user jobs.
           </Card>
         </section>
       )}

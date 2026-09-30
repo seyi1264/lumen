@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
@@ -14,10 +14,11 @@ function LoginPage() {
   const { user, isPending } = useCurrentUserState();
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("seyi1264@gmail.com");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   if (isPending) {
     return <main className="grid min-h-dvh place-items-center p-6"><div className="h-40 w-full max-w-sm animate-pulse rounded-md bg-raised" /></main>;
@@ -28,13 +29,30 @@ function LoginPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
+      const supabase = getSupabaseClient();
       const result =
         mode === "sign-up"
-          ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
-          : await authClient.signIn.email({ email: email.trim(), password });
+          ? await supabase.auth.signUp({
+              email: email.trim(),
+              password,
+              options: {
+                data: { full_name: name.trim() },
+                emailRedirectTo: `${window.location.origin}/login`,
+              },
+            })
+          : await supabase.auth.signInWithPassword({
+              email: email.trim(),
+              password,
+            });
       if (result.error) {
         setError(result.error.message ?? "Authentication failed. Check your details and try again.");
+        return;
+      }
+      if (mode === "sign-up" && !result.data.session) {
+        setNotice("Check your email to confirm your account, then sign in.");
+        setMode("sign-in");
         return;
       }
       window.location.assign("/");
@@ -58,7 +76,7 @@ function LoginPage() {
             <button
               key={item}
               type="button"
-              onClick={() => { setMode(item); setError(null); }}
+              onClick={() => { setMode(item); setError(null); setNotice(null); }}
               className={`h-10 border-b-2 text-sm ${mode === item ? "border-primary text-fg" : "border-transparent text-muted"}`}
             >
               {item === "sign-in" ? "Sign in" : "Create account"}
@@ -90,6 +108,7 @@ function LoginPage() {
             />
           </div>
           {error && <p role="alert" className="text-sm text-loss">{error}</p>}
+          {notice && <p role="status" className="text-sm text-primary">{notice}</p>}
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
           </Button>

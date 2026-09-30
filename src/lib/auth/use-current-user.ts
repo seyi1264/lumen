@@ -1,4 +1,6 @@
-import { authClient, authEnabled } from "./client";
+import { useEffect, useState } from "react";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { getSupabaseClient } from "../supabase/client";
 
 /** Normalized user shape used across the app, auth on or off. */
 export type AppUser = {
@@ -6,23 +8,8 @@ export type AppUser = {
   displayName: string | null;
   primaryEmail: string | null;
   profileImageUrl: string | null;
-  /** True when this is the sandbox/dev fallback (auth not configured). */
+  /** Retained for compatibility; Supabase Auth never returns a fallback user. */
   isDevFallback: boolean;
-};
-
-/**
- * Stable fallback user, used ONLY when auth is disabled
- * (`VITE_AUTH_ENABLED=false`, the shipped default). With auth on, the sandbox
- * live preview does real sign-in via the baked preview client. Its id is
- * `"dev-user"` — the SAME id `verify.server.ts` returns server-side — so per-user
- * rows written in that mode belong to one consistent owner.
- */
-export const DEV_USER: AppUser = {
-  id: "dev-user",
-  displayName: "Dev User",
-  primaryEmail: "dev@example.com",
-  profileImageUrl: null,
-  isDevFallback: true,
 };
 
 /** `useCurrentUserState()` result: the user plus the session-loading flag. */
@@ -34,13 +21,7 @@ export type CurrentUserState = {
 };
 
 /**
- * Current user + loading state. Same behavior in live preview and when deployed:
- *   - Auth enabled -> the real signed-in user; `user` is `null` while
- *                            the session resolves (`isPending: true`) and when
- *                            signed out (`isPending: false`). Session comes from
- *                            Better Auth `useSession()` → `/api/auth/get-session`
- *                            (cookie when deployed; bearer in live preview).
- *   - Auth disabled (`VITE_AUTH_ENABLED=false`) -> `DEV_USER`, never pending.
+ * Current user + loading state from the browser's Supabase Auth session.
  *
  * Protect a route by waiting out `isPending` before acting on `user` —
  * redirecting on `user: null` alone bounces signed-in visitors to sign-in on
@@ -51,26 +32,50 @@ export type CurrentUserState = {
  *   if (isPending) return null;              // still resolving — don't redirect yet
  *   if (!user) return <RedirectToSignIn />;  // definitely signed out
  *
- * `authEnabled` is a module-level constant fixed at load, so the guarded hook
- * call keeps a stable hook order across every render of a given component.
  */
 export function useCurrentUserState(): CurrentUserState {
-  if (!authEnabled) return { user: DEV_USER, isPending: false };
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
-  const { data, isPending } = authClient.useSession();
-  const user = data?.user;
-  return {
-    user: user
-      ? {
-          id: user.id,
-          displayName: user.name ?? null,
-          primaryEmail: user.email ?? null,
-          profileImageUrl: user.image ?? null,
-          isDevFallback: false,
-        }
-      : null,
-    isPending,
-  };
+  const [state, setState] = useState<CurrentUserState>({
+    user: null,
+    isPending: true,
+  });
+
+  useEffect(() => {
+    let active = true;
+    let supabase: SupabaseClient;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      setState({ user: null, isPending: false });
+      return;
+    }
+
+    const mapUser = (user: User | null): AppUser | null => {
+      if (!user) return null;
+      const name = user.user_metadata?.full_name ?? user.user_metadata?.name;
+      const image = user.user_metadata?.avatar_url;
+      return {
+        id: user.id,
+        displayName: typeof name === "string" ? name : null,
+        primaryEmail: user.email ?? null,
+        profileImageUrl: typeof image === "string" ? image : null,
+        isDevFallback: false,
+      };
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setState({ user: mapUser(session?.user ?? null), isPending: false });
+    });
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (active) setState({ user: mapUser(sessionData.session?.user ?? null), isPending: false });
+    });
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  return state;
 }
 
 /**

@@ -1,11 +1,9 @@
 import { createMiddleware } from "@tanstack/react-start";
 
 /**
- * Auth middleware for server functions — the standard way to get the caller's
- * verified user id. When deployed the session cookie is same-origin and rides
- * along automatically. In the live preview the client also forwards the bearer
- * token (partitioned cookies) via the `.client` hook below — call sites do not
- * thread it themselves.
+ * Supabase Auth middleware for server functions — the standard way to get the
+ * caller's verified user id. The browser forwards its access token through the
+ * `.client` hook; the server verifies it with Supabase before invoking a handler.
  *
  *   import { createServerFn } from "@tanstack/react-start";
  *   import { getSql } from "@/lib/db";
@@ -18,20 +16,16 @@ import { createMiddleware } from "@tanstack/react-start";
  *       return sql`select * from todos where user_id = ${context.userId}`;
  *     });
  *
- * Signed out with auth on (live preview included) -> throws `UnauthorizedError`
- * (see `verify.server.ts`). With auth disabled (`VITE_AUTH_ENABLED=false`, the
- * shipped default) it resolves the shared dev user — but throws instead when a
- * `DATABASE_URL` is also set, so an app without sign-in must not use this at
- * all. On the auth-on path, use it on every server function that touches
- * per-user data and scope every query by `context.userId`.
+ * Signed-out visitors and invalid tokens receive `UnauthorizedError` (see
+ * `verify.server.ts`). Use this on every server function that touches per-user
+ * data and scope every query by `context.userId`.
  */
 export const authMiddleware = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
-    // Live preview (partitioned iframe): the session rides a bearer token, not a
-    // cookie, so forward it to the server. Null when deployed (cookie auth), so
-    // this is a no-op there.
-    const { getBearerToken } = await import("./client");
-    return next({ sendContext: { bearerToken: getBearerToken() ?? undefined } });
+    const { getSupabaseAccessToken } = await import("../supabase/client");
+    return next({
+      sendContext: { supabaseToken: (await getSupabaseAccessToken()) ?? undefined },
+    });
   })
   .server(async ({ next, context }) => {
     // ONLY import `*.server` modules here. This file is dual client/server
@@ -42,6 +36,6 @@ export const authMiddleware = createMiddleware({ type: "function" })
     const { requireUserId } = await import("./verify.server");
     // Reject scripted cross-site/sibling requests before touching per-user data.
     assertSameSiteRequest();
-    const userId = await requireUserId(context.bearerToken);
+    const userId = await requireUserId(context.supabaseToken);
     return next({ context: { userId } });
   });

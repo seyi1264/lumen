@@ -1,4 +1,5 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { withVerifiedPostgresSsl } from "../../scripts/postgres-connection.mjs";
 import { assertProductionDatabaseConfigured, isProductionRuntime } from "./auth/runtime-guards.ts";
 
 /** Which database backend is active. */
@@ -90,6 +91,10 @@ function toSql(run: Run): Sql {
 }
 
 function createPostgresSql(): Promise<Sql> {
+  const connectionString = databaseUrl;
+  if (!connectionString) {
+    throw new Error("Postgres connection string is not configured.");
+  }
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Regular Postgres driver: node-postgres (`pg`) — works with Supabase and Neon.
     // pooled endpoint. One pool per process; warm serverless instances reuse it.
@@ -98,7 +103,7 @@ function createPostgresSql(): Promise<Sql> {
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     const pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString: withVerifiedPostgresSsl(connectionString),
       ssl: { rejectUnauthorized: true },
     });
     return toSql(async <T>(text: string, params: unknown[]) => {

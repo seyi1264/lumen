@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
+import { withVerifiedPostgresSsl } from "./postgres-connection.mjs";
 
 const databaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -43,7 +44,7 @@ async function main() {
   }
 
   const pool = new pg.Pool({
-    connectionString: databaseUrl,
+    connectionString: withVerifiedPostgresSsl(databaseUrl),
     max: 1,
     ssl: { rejectUnauthorized: true },
   });

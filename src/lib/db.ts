@@ -1,4 +1,5 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { assertProductionDatabaseConfigured, isProductionRuntime } from "./auth/runtime-guards.ts";
 
 /** Which database backend is active. */
 export type DbSource = "postgres" | "pglite";
@@ -7,9 +8,11 @@ export type DbSource = "postgres" | "pglite";
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined"
-    ? process.env.SUPABASE_DB_URL || process.env.DATABASE_URL
+    ? process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim()
     : undefined;
 const databaseUrl = rawDatabaseUrl?.trim() || undefined;
+
+assertProductionDatabaseConfigured(databaseUrl, { production: isProductionRuntime() });
 
 /**
  * Active backend: real **Postgres** when `SUPABASE_DB_URL` or `DATABASE_URL` is
@@ -138,7 +141,9 @@ async function createPgliteSql(): Promise<Sql> {
   // passes serialized on a global chain so concurrent callers never
   // double-apply.
   const migrate = async (): Promise<void> => {
-    const migrations = import.meta.glob("/migrations/*.sql", {
+    const glob = import.meta.glob;
+    if (typeof glob !== "function") return;
+    const migrations = glob("/migrations/*.sql", {
       query: "?raw",
       import: "default",
       eager: true,

@@ -1,7 +1,7 @@
-import { PLATFORM_META } from "./constants";
-import { firstLine } from "./score";
-import type { Platform, Post } from "./types";
-import { PLATFORMS } from "./types";
+import { PLATFORM_META } from "./constants.ts";
+import { firstLine } from "./score.ts";
+import type { Platform, Post } from "./types.ts";
+import { PLATFORMS } from "./types.ts";
 
 export type ChannelKind = "intent" | "clipboard";
 

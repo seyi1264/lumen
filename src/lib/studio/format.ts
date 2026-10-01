@@ -1,6 +1,6 @@
 import { format, formatDistanceToNowStrict, isThisYear, parseISO } from "date-fns";
-import type { Platform } from "./types";
-import { PLATFORM_META } from "./constants";
+import type { Platform } from "./types.ts";
+import { PLATFORM_META } from "./constants.ts";
 
 export function formatNumber(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;

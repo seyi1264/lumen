@@ -1,6 +1,6 @@
-import { PLATFORM_META } from "./constants";
-import { clamp } from "./format";
-import type { Platform, Post } from "./types";
+import { PLATFORM_META } from "./constants.ts";
+import { clamp } from "./format.ts";
+import type { Platform, Post } from "./types.ts";
 
 export type ScoreNote = {
   tone: "up" | "down" | "neutral";

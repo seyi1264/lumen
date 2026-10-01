@@ -1,15 +1,15 @@
 import { formatISO } from "date-fns";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { adaptCopy } from "./channels";
-import { hashString } from "./format";
+import { adaptCopy } from "./channels.ts";
+import { hashString } from "./format.ts";
 import {
   buildDailyStats,
   createSeedDeals,
   createSeedExperiments,
   createSeedPosts,
   DEFAULT_VOICE,
-} from "./seed";
+} from "./seed.ts";
 import type {
   BrandVoice,
   DailyStat,
@@ -18,8 +18,8 @@ import type {
   Platform,
   Post,
   PostStatus,
-} from "./types";
-import { PLATFORMS } from "./types";
+} from "./types.ts";
+import { PLATFORMS } from "./types.ts";
 
 export type ChannelPref = { enabled: boolean };
 
@@ -69,15 +69,34 @@ function simulatedMetrics(post: Post) {
   return { impressions, engagement, clicks, saves };
 }
 
+function isLegacySeededVoice(voice?: Partial<BrandVoice>) {
+  return voice?.name === "Nia Okonkwo" || voice?.handle === "@niaokonkwo";
+}
+
+function clearLegacyMockStudioData() {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem("lumen-studio-v1");
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { state?: Partial<StudioState> } | null;
+    const voice = parsed?.state?.voice;
+    if (isLegacySeededVoice(voice)) {
+      window.localStorage.removeItem("lumen-studio-v1");
+    }
+  } catch {
+    // Ignore malformed persisted storage and fall back to a clean starter state.
+  }
+}
+
+clearLegacyMockStudioData();
+
 function snapshot() {
-  const posts = createSeedPosts();
-  const deals = createSeedDeals();
   return {
     voice: DEFAULT_VOICE,
-    posts,
-    deals,
-    experiments: createSeedExperiments(),
-    stats: buildDailyStats(posts, deals),
+    posts: [],
+    deals: [],
+    experiments: [],
+    stats: [],
     channels: defaultChannels(),
   };
 }

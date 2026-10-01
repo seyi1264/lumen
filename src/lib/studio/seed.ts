@@ -1,7 +1,7 @@
 import { addDays, addHours, formatISO, startOfDay, subDays } from "date-fns";
-import { AUDIENCE_TOTAL } from "./constants";
-import { hashString } from "./format";
-import type { BrandVoice, DailyStat, Deal, Experiment, Post } from "./types";
+import { AUDIENCE_TOTAL } from "./constants.ts";
+import { hashString } from "./format.ts";
+import type { BrandVoice, DailyStat, Deal, Experiment, Post } from "./types.ts";
 
 /** Frozen so SSR and the first client paint share the same desk. */
 export const STUDIO_NOW = new Date("2026-09-28T15:19:00+01:00");
@@ -11,12 +11,11 @@ function iso(d: Date) {
 }
 
 export const DEFAULT_VOICE: BrandVoice = {
-  name: "Nia Okonkwo",
-  handle: "@niaokonkwo",
-  audience:
-    "Independent operators, writers, and founders who care about the work more than the performance of work.",
-  tone: "Calm, precise, slightly wry. Short sentences. No hype. Concrete examples from the desk, not the stage.",
-  avoid: "Growth-hacking slang, fake urgency, guru energy, and advice you would not take yourself.",
+  name: "Your Studio",
+  handle: "@yourstudio",
+  audience: "",
+  tone: "",
+  avoid: "",
 };
 
 export function createSeedPosts(now = STUDIO_NOW): Post[] {

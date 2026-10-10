@@ -78,10 +78,18 @@ async function chat(system: string, user: string): Promise<AiOk<{ text: string }
   });
 
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       return {
         ok: false,
-        error: "The editor is unavailable right now. Scoring still runs on the desk.",
+        error:
+          "xAI rejected the API key (401). Replace XAI_API_KEY in Vercel with an active xAI API key, then redeploy.",
+      };
+    }
+    if (res.status === 403) {
+      return {
+        ok: false,
+        error:
+          "xAI denied this request (403). Check API access, model permissions, and billing or credits for the account that owns this key.",
       };
     }
     return { ok: false, error: `Editor error ${res.status}` };

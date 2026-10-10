@@ -40,7 +40,10 @@ import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
-import { withVerifiedPostgresSsl } from "../../../scripts/postgres-connection.mjs";
+import {
+  verifiedPostgresSslOptions,
+  withVerifiedPostgresSsl,
+} from "../../../scripts/postgres-connection.mjs";
 import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
@@ -145,7 +148,7 @@ const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 const database = databaseUrl
   ? new Pool({
       connectionString: withVerifiedPostgresSsl(databaseUrl),
-      ssl: { rejectUnauthorized: true },
+      ssl: verifiedPostgresSslOptions(databaseUrl),
     })
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 

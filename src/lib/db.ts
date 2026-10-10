@@ -1,5 +1,8 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
-import { withVerifiedPostgresSsl } from "../../scripts/postgres-connection.mjs";
+import {
+  verifiedPostgresSslOptions,
+  withVerifiedPostgresSsl,
+} from "../../scripts/postgres-connection.mjs";
 import { assertProductionDatabaseConfigured, isProductionRuntime } from "./auth/runtime-guards.ts";
 
 /** Which database backend is active. */
@@ -104,7 +107,7 @@ function createPostgresSql(): Promise<Sql> {
     types.setTypeParser(OID_INTERVAL, identity);
     const pool = new Pool({
       connectionString: withVerifiedPostgresSsl(connectionString),
-      ssl: { rejectUnauthorized: true },
+      ssl: verifiedPostgresSslOptions(connectionString),
     });
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);

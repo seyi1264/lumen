@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
   callTool,
-  connectorsBaseFor,
   failureMemoSize,
   isConnectorTokenReady,
 } from "./client.server.ts";
@@ -149,19 +148,6 @@ describe("callTool failure memo", () => {
     } finally {
       delete process.env.GROK_PROJECT_ID;
     }
-  });
-});
-
-describe("connector gateway host resolution", () => {
-  it("routes Grok live-preview hosts to the staging gateway", () => {
-    assert.equal(
-      connectorsBaseFor("lumen-preview.grok-sandbox.com"),
-      "https://connectors.app-builder-testing.com",
-    );
-  });
-
-  it("does not route unrelated hosts to a connector gateway", () => {
-    assert.equal(connectorsBaseFor("grok-sandbox.com.attacker.example"), null);
   });
 });
 

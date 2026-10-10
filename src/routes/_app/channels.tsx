@@ -21,12 +21,6 @@ import { PLATFORM_META } from "@/lib/studio/constants";
 import { formatWhen } from "@/lib/studio/format";
 import { useStudioStore } from "@/lib/studio/store";
 import { PLATFORMS, type Platform, type Post } from "@/lib/studio/types";
-import {
-  connectBuffer,
-  disconnectBuffer,
-  getBufferChannels,
-  type BufferChannel,
-} from "@/lib/studio/backend";
 import { cn } from "@/lib/utils";
 
 type Search = { id?: string };
@@ -72,73 +66,11 @@ function ChannelsPage() {
   const [sourceId, setSourceId] = useState(id ?? sources[0]?.id ?? "");
   const [rooms, setRooms] = useState<Platform[]>(["x", "linkedin", "facebook"]);
   const [when, setWhen] = useState("");
-  const [bufferKey, setBufferKey] = useState("");
-  const [bufferChannels, setBufferChannels] = useState<BufferChannel[]>([]);
-  const [bufferConnected, setBufferConnected] = useState(false);
-  const [bufferBusy, setBufferBusy] = useState(false);
-  const [bufferError, setBufferError] = useState<string | null>(null);
   const source = posts.find((p) => p.id === sourceId) ?? sources[0];
 
   useEffect(() => {
     if (id) setSourceId(id);
   }, [id]);
-
-  useEffect(() => {
-    void getBufferChannels()
-      .then((result) => {
-        if (!result.ok) {
-          setBufferError(result.error);
-          return;
-        }
-        setBufferConnected(result.connected);
-        setBufferChannels(result.channels);
-      })
-      .catch((error: unknown) => {
-        setBufferError(error instanceof Error ? error.message : "Could not check Buffer connection.");
-      });
-  }, []);
-
-  async function handleConnectBuffer() {
-    if (!bufferKey.trim()) {
-      toast.error("Enter your Buffer API key.");
-      return;
-    }
-    setBufferBusy(true);
-    try {
-      const result = await connectBuffer({ data: { apiKey: bufferKey.trim() } });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      setBufferChannels(result.channels);
-      setBufferConnected(true);
-      setBufferKey("");
-      setBufferError(null);
-      toast(`Buffer connected. ${result.channels.length} channels found.`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not connect Buffer.");
-    } finally {
-      setBufferBusy(false);
-    }
-  }
-
-  async function handleDisconnectBuffer() {
-    setBufferBusy(true);
-    try {
-      const result = await disconnectBuffer();
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      setBufferConnected(false);
-      setBufferChannels([]);
-      toast("Buffer disconnected from Lumen. Revoke the API key in Buffer settings to invalidate it.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not disconnect Buffer.");
-    } finally {
-      setBufferBusy(false);
-    }
-  }
 
   function toggleRoom(p: Platform) {
     setRooms((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -149,70 +81,8 @@ function ChannelsPage() {
       <PageHeader
         eyebrow="Channels"
         title="One idea, every room"
-        description="Connect Buffer once, then schedule to the social channels already authorized in your Buffer account."
+        description="Lumen cannot log into X, LinkedIn, Facebook, or YouTube for you. It writes the native version, waits for the slot, then opens the official composer with the copy ready."
       />
-
-      <Card className="mb-6 p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl">Buffer connection</h2>
-            <p className="mt-1 text-sm text-muted">
-              Your key is encrypted per user and sent only to Lumen’s server. Buffer keys can access all organizations on that Buffer account.
-            </p>
-          </div>
-          {bufferConnected && <Badge tone="published">Connected · {bufferChannels.length} channels</Badge>}
-        </div>
-
-        {!bufferConnected ? (
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="buffer-api-key">Buffer API key</Label>
-                <a
-                  href="https://publish.buffer.com/settings/api"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-primary underline-offset-4 hover:underline"
-                >
-                  Open Buffer API settings
-                </a>
-              </div>
-              <Input
-                id="buffer-api-key"
-                type="password"
-                autoComplete="off"
-                value={bufferKey}
-                onChange={(event) => setBufferKey(event.target.value)}
-                placeholder="Create a key in Buffer Settings → API"
-                className="mt-1.5"
-              />
-            </div>
-            <Button onClick={handleConnectBuffer} disabled={bufferBusy || !bufferKey.trim()}>
-              {bufferBusy ? "Connecting…" : "Connect Buffer"}
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={handleDisconnectBuffer} disabled={bufferBusy}>
-              {bufferBusy ? "Disconnecting…" : "Disconnect Buffer"}
-            </Button>
-            <p className="text-xs text-subtle">Disconnect removes Lumen’s encrypted copy; revoke the key in Buffer to invalidate it.</p>
-          </div>
-        )}
-
-        {bufferError && <p role="status" className="mt-3 text-sm text-muted">{bufferError}</p>}
-        {bufferConnected && bufferChannels.length > 0 && (
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {bufferChannels.map((channel) => (
-              <li key={channel.id} className="rounded-md border border-border/80 bg-surface p-3">
-                <p className="text-sm font-medium text-fg">{channel.name}</p>
-                <p className="mt-1 text-xs text-muted">{channel.service} · {channel.organizationName}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="mt-3 text-xs text-subtle">Buffer supports X, YouTube, LinkedIn, Facebook, and other listed channels; it does not provide Medium publishing or CRM access.</p>
-      </Card>
 
       {due.length > 0 && (
         <Card className="mb-6">

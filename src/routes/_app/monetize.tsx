@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { reshapeCopy } from "@/lib/studio/ai";
-import { AUDIENCE_TOTAL, DEAL_TYPE_LABEL } from "@/lib/studio/constants";
+import { DEAL_TYPE_LABEL } from "@/lib/studio/constants";
 import { formatCurrency } from "@/lib/studio/format";
 import { revenueTotals, suggestedRate } from "@/lib/studio/insights";
 import { useStudioStore } from "@/lib/studio/store";
@@ -44,7 +44,7 @@ function MonetizePage() {
 
   const [openForm, setOpenForm] = useState(false);
   const [brand, setBrand] = useState("");
-  const [amount, setAmount] = useState("3500");
+  const [amount, setAmount] = useState("");
   const [type, setType] = useState<DealType>("sponsorship");
   const [pitch, setPitch] = useState("");
   const [busy, setBusy] = useState(false);
@@ -97,7 +97,7 @@ function MonetizePage() {
       <PageHeader
         eyebrow="Monetize"
         title="The rate holds"
-        description={`A room of ${AUDIENCE_TOTAL.toLocaleString()} is not a media kit. It is a list of people who already chose to stay. Price like that.`}
+        description="Price from the room you actually have. Add a deal when someone is paying."
         action={
           <Dialog open={openForm} onOpenChange={setOpenForm}>
             <DialogTrigger asChild>

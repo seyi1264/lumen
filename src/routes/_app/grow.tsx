@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AUDIENCE, PLATFORM_META } from "@/lib/studio/constants";
-import { formatNumber } from "@/lib/studio/format";
+import { PLATFORM_META } from "@/lib/studio/constants";
 import { compactInsightLine, pillarPerformance } from "@/lib/studio/insights";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Platform } from "@/lib/studio/types";
@@ -36,7 +35,6 @@ function GrowPage() {
   const setVoice = useStudioStore((s) => s.setVoice);
   const experiments = useStudioStore((s) => s.experiments);
   const setExperimentStatus = useStudioStore((s) => s.setExperimentStatus);
-  const resetStudio = useStudioStore((s) => s.resetStudio);
   const duplicate = useStudioStore((s) => s.duplicateToPlatform);
   const navigate = useNavigate();
   const pillars = pillarPerformance(posts);
@@ -52,13 +50,16 @@ function GrowPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {(Object.keys(AUDIENCE) as Platform[]).map((p) => (
-          <Card key={p} className="p-4">
-            <p className="text-xs tracking-wide text-muted">{PLATFORM_META[p].label}</p>
-            <p className="mt-2 font-display text-2xl tabular">{formatNumber(AUDIENCE[p])}</p>
-            <p className="mt-1 text-xs text-subtle">{PLATFORM_META[p].cadence}</p>
-          </Card>
-        ))}
+        {(Object.keys(PLATFORM_META) as Platform[]).map((p) => {
+          const count = posts.filter((post) => post.platform === p && post.status === "published").length;
+          return (
+            <Card key={p} className="p-4">
+              <p className="text-xs tracking-wide text-muted">{PLATFORM_META[p].label}</p>
+              <p className="mt-2 font-display text-2xl tabular">{count}</p>
+              <p className="mt-1 text-xs text-subtle">published · {PLATFORM_META[p].cadence}</p>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
@@ -101,6 +102,9 @@ function GrowPage() {
         <Card className="lg:col-span-2">
           <h2 className="font-display text-2xl">Experiments</h2>
           <ul className="mt-4 space-y-4">
+            {experiments.length === 0 && (
+              <li className="text-sm text-muted">No experiments yet. The list stays empty until you add one.</li>
+            )}
             {experiments.map((e) => (
               <li key={e.id} className="rounded-md bg-raised p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -178,9 +182,6 @@ function GrowPage() {
             />
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="mt-4" onClick={() => resetStudio()}>
-          Restore the demo desk
-        </Button>
       </Card>
     </div>
   );

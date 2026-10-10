@@ -41,10 +41,6 @@ import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import {
-  verifiedPostgresSslOptions,
-  withVerifiedPostgresSsl,
-} from "../../../scripts/postgres-connection.mjs";
-import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
   PREVIEW_CLIENT_ID,
@@ -146,10 +142,7 @@ const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 // schema from `migrations/auth/0001_auth.sql`, copied into `migrations/` when
 // the app turns sign-in on.
 const database = databaseUrl
-  ? new Pool({
-      connectionString: withVerifiedPostgresSsl(databaseUrl),
-      ssl: verifiedPostgresSslOptions(databaseUrl),
-    })
+  ? new Pool({ connectionString: databaseUrl })
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 
 /** Session token cookie name — also read by the live-preview popup completion page. */

@@ -36,17 +36,16 @@ function OverviewPage() {
     <div>
       <PageHeader
         eyebrow="Overview"
-        title={hello(voice.name.split(" ")[0] ?? "there")}
-        description="The desk is set. One letter, two notes, and a rate sitting in the pipeline. Do the next honest thing."
+        title={voice.name.trim() ? hello(voice.name.split(" ")[0] || "there") : hello("there").replace(", there.", ".")}
+        description={
+          posts.length
+            ? "Your desk, from your Supabase. Do the next honest thing."
+            : "The desk is empty. Write the first piece and it stays on your Supabase project."
+        }
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link to="/autopilot">Autopilot</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/create">New piece</Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link to="/create">New piece</Link>
+          </Button>
         }
       />
 

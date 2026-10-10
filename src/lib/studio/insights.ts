@@ -81,9 +81,10 @@ export function revenueTotals(deals: Deal[]) {
 }
 
 export function suggestedRate(avgImpressions: number, rate: number) {
+  if (!avgImpressions) return { rpm: 0, letter: 0 };
   const rpm = 18 + rate * 2.4;
   const letter = Math.round((avgImpressions / 1000) * rpm);
-  return { rpm, letter: Math.max(1800, letter) };
+  return { rpm, letter };
 }
 
 export function overviewInsights(
@@ -128,10 +129,18 @@ export function overviewInsights(
     to: "/calendar",
   });
 
+  const lead = deals
+    .filter((d) => d.status !== "paid")
+    .sort((a, b) => b.amount - a.amount)[0];
+
   items.push({
     kicker: "Money",
-    title: `${formatCurrency(open)} sitting in the pipeline`,
-    body: `Collected ${formatCurrency(paid)} this cycle. North & Co. is the one to close — the rate already matches the room.`,
+    title: open ? `${formatCurrency(open)} sitting in the pipeline` : "Nothing in the pipeline",
+    body: lead
+      ? `Collected ${formatCurrency(paid)}. ${lead.brand} is the open one at ${formatCurrency(lead.amount)}.`
+      : paid
+        ? `Collected ${formatCurrency(paid)}. No open deals.`
+        : "Add a deal when someone is actually paying for the room.",
     to: "/monetize",
   });
 

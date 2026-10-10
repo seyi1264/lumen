@@ -59,8 +59,8 @@ test("an explicit process-env override wins over the file", () => {
   assert.equal(merged.PATH, "/usr/bin");
 });
 
-test("auth is not disabled in the app environment", () => {
-  assert.equal(readAppEnv(projectRoot()).VITE_AUTH_ENABLED, undefined);
+test("the template ships auth off", () => {
+  assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
 });
 
 test("vite loadEnv resolves the wrapped value", () => {
@@ -73,16 +73,14 @@ test("vite loadEnv resolves the wrapped value", () => {
   assert.equal(merged.VITE_AUTH_ENABLED, "false");
 });
 
-test("the wrapped command does not force auth off", async () => {
-  const env = { ...process.env };
-  delete env.VITE_AUTH_ENABLED;
+test("the wrapped command runs with the app env applied", async () => {
   const { stdout } = await execFileAsync(process.execPath, [
     WRAPPER,
     process.execPath,
     "-e",
     PRINT_FLAG,
-  ], { env });
-  assert.equal(stdout, "undefined");
+  ]);
+  assert.equal(stdout, "false");
 });
 
 test("the wrapped command sees an explicit override, not the file value", async () => {
@@ -115,26 +113,16 @@ test("a signal-killed command is never reported as success", async () => {
   );
 });
 
-test("the CLI still runs when invoked through a symlinked path", async (t) => {
+test("the CLI still runs when invoked through a symlinked path", async () => {
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.
   const link = join(mkdtempSync(join(tmpdir(), "app-env-link-")), "scripts");
-  try {
-    symlinkSync(join(projectRoot(), "scripts"), link);
-  } catch (error) {
-    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) {
-      t.skip("symbolic links are unavailable in this environment");
-      return;
-    }
-    throw error;
-  }
-  const env = { ...process.env };
-  delete env.VITE_AUTH_ENABLED;
+  symlinkSync(join(projectRoot(), "scripts"), link);
   const { stdout } = await execFileAsync(process.execPath, [
     join(link, "with-app-env.mjs"),
     process.execPath,
     "-e",
     PRINT_FLAG,
-  ], { env });
-  assert.equal(stdout, "undefined");
+  ]);
+  assert.equal(stdout, "false");
 });

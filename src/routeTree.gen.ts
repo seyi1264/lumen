@@ -10,34 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AppAutopilotRouteImport } from './routes/_app/autopilot'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppChannelsRouteImport } from './routes/_app/channels'
 import { Route as AppCreateRouteImport } from './routes/_app/create'
 import { Route as AppGrowRouteImport } from './routes/_app/grow'
 import { Route as AppMonetizeRouteImport } from './routes/_app/monetize'
 import { Route as AppMonitorRouteImport } from './routes/_app/monitor'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAutopilotRoute = AppAutopilotRouteImport.update({
-  id: '/autopilot',
-  path: '/autopilot',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -70,27 +57,17 @@ const AppMonitorRoute = AppMonitorRouteImport.update({
   path: '/monitor',
   getParentRoute: () => AppRoute,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/login': typeof LoginRoute
-  '/autopilot': typeof AppAutopilotRoute
   '/calendar': typeof AppCalendarRoute
   '/channels': typeof AppChannelsRoute
   '/create': typeof AppCreateRoute
   '/grow': typeof AppGrowRoute
   '/monetize': typeof AppMonetizeRoute
   '/monitor': typeof AppMonitorRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof LoginRoute
-  '/autopilot': typeof AppAutopilotRoute
   '/calendar': typeof AppCalendarRoute
   '/channels': typeof AppChannelsRoute
   '/create': typeof AppCreateRoute
@@ -98,13 +75,10 @@ export interface FileRoutesByTo {
   '/monetize': typeof AppMonetizeRoute
   '/monitor': typeof AppMonitorRoute
   '/': typeof AppIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/login': typeof LoginRoute
-  '/_app/autopilot': typeof AppAutopilotRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/channels': typeof AppChannelsRoute
   '/_app/create': typeof AppCreateRoute
@@ -112,25 +86,19 @@ export interface FileRoutesById {
   '/_app/monetize': typeof AppMonetizeRoute
   '/_app/monitor': typeof AppMonitorRoute
   '/_app/': typeof AppIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/login'
-    | '/autopilot'
     | '/calendar'
     | '/channels'
     | '/create'
     | '/grow'
     | '/monetize'
     | '/monitor'
-    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/login'
-    | '/autopilot'
     | '/calendar'
     | '/channels'
     | '/create'
@@ -138,12 +106,9 @@ export interface FileRouteTypes {
     | '/monetize'
     | '/monitor'
     | '/'
-    | '/api/auth/$'
   id:
     | '__root__'
     | '/_app'
-    | '/login'
-    | '/_app/autopilot'
     | '/_app/calendar'
     | '/_app/channels'
     | '/_app/create'
@@ -151,13 +116,10 @@ export interface FileRouteTypes {
     | '/_app/monetize'
     | '/_app/monitor'
     | '/_app/'
-    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -169,25 +131,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app/': {
       id: '/_app/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/autopilot': {
-      id: '/_app/autopilot'
-      path: '/autopilot'
-      fullPath: '/autopilot'
-      preLoaderRoute: typeof AppAutopilotRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/calendar': {
@@ -232,18 +180,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMonitorRouteImport
       parentRoute: typeof AppRoute
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 interface AppRouteChildren {
-  AppAutopilotRoute: typeof AppAutopilotRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppChannelsRoute: typeof AppChannelsRoute
   AppCreateRoute: typeof AppCreateRoute
@@ -254,7 +194,6 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAutopilotRoute: AppAutopilotRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppChannelsRoute: AppChannelsRoute,
   AppCreateRoute: AppCreateRoute,
@@ -268,8 +207,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  LoginRoute: LoginRoute,
-  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

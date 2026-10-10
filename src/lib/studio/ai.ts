@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { authMiddleware } from "@/lib/auth/middleware";
 
 const draftInput = z.object({
   brief: z.string().min(3).max(800),
@@ -17,7 +16,7 @@ const draftInput = z.object({
 const reshapeInput = z.object({
   body: z.string().min(1).max(8000),
   platform: z.enum(["x", "linkedin", "facebook", "instagram", "newsletter", "youtube"]),
-  mode: z.enum(["tighten", "hooks", "thread", "pitch", "repurpose", "reply"]),
+  mode: z.enum(["tighten", "hooks", "thread", "pitch", "repurpose"]),
   targetPlatform: z
     .enum(["x", "linkedin", "facebook", "instagram", "newsletter", "youtube"])
     .optional(),
@@ -103,7 +102,6 @@ Always reply with compact JSON only.`;
 
 export const generateDraft = createServerFn({ method: "POST" })
   .validator(draftInput)
-  .middleware([authMiddleware])
   .handler(async ({ data }): Promise<AiOk<DraftResult> | AiErr> => {
     const result = await chat(
       SYSTEM,
@@ -133,7 +131,6 @@ Keep body native to the platform. X: one to four short lines, under 280 chars if
 
 export const reshapeCopy = createServerFn({ method: "POST" })
   .validator(reshapeInput)
-  .middleware([authMiddleware])
   .handler(async ({ data }): Promise<AiOk<ReshapeResult> | AiErr> => {
     const intent =
       data.mode === "tighten"
@@ -144,8 +141,6 @@ export const reshapeCopy = createServerFn({ method: "POST" })
             ? "Turn this into a 5–7 post X thread. Numbered. First line must stand alone."
             : data.mode === "pitch"
               ? "Write a 90-word sponsorship pitch an operator would actually read. Include a rate suggestion as a range, no theatrics."
-              : data.mode === "reply"
-                ? "Write one concise, direct reply to the comment. Address its actual point, stay in the writer's voice, do not invent facts, and do not pretend to have posted it."
               : `Repurpose this for ${data.targetPlatform ?? "x"} without sounding like a cross-post.`;
 
     const result = await chat(

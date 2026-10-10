@@ -1,15 +1,7 @@
 import { formatISO } from "date-fns";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { adaptCopy } from "./channels.ts";
-import { hashString } from "./format.ts";
-import {
-  buildDailyStats,
-  createSeedDeals,
-  createSeedExperiments,
-  createSeedPosts,
-  DEFAULT_VOICE,
-} from "./seed.ts";
+import { adaptCopy } from "./channels";
+import { buildDailyStats, EMPTY_VOICE } from "./seed";
 import type {
   BrandVoice,
   DailyStat,
@@ -18,21 +10,25 @@ import type {
   Platform,
   Post,
   PostStatus,
-} from "./types.ts";
-import { PLATFORMS } from "./types.ts";
+} from "./types";
+import { PLATFORMS } from "./types";
 
 export type ChannelPref = { enabled: boolean };
 
-export type StudioState = {
-  hydrated: boolean;
+export type StudioSnapshot = {
   voice: BrandVoice;
   posts: Post[];
   deals: Deal[];
   experiments: Experiment[];
-  stats: DailyStat[];
   channels: Record<Platform, ChannelPref>;
+};
+
+export type StudioState = StudioSnapshot & {
+  hydrated: boolean;
+  stats: DailyStat[];
   hydrate: () => void;
-  resetStudio: () => void;
+  replaceStudio: (snap: StudioSnapshot) => void;
+  clearStudio: () => void;
   setVoice: (voice: Partial<BrandVoice>) => void;
   setChannel: (platform: Platform, pref: Partial<ChannelPref>) => void;
   upsertPost: (post: Post) => void;
@@ -58,208 +54,166 @@ function defaultChannels(): Record<Platform, ChannelPref> {
   >;
 }
 
-function simulatedMetrics(post: Post) {
-  const h = hashString(post.id + post.body.slice(0, 40));
-  const base = 900 + (h % 8000);
-  const lift = 0.7 + ((h >> 8) % 80) / 100;
-  const impressions = Math.round(base * lift * (post.platform === "x" ? 1.6 : 1));
-  const engagement = Math.round(impressions * (0.04 + ((h >> 4) % 40) / 1000));
-  const clicks = Math.round(engagement * 0.22);
-  const saves = Math.round(engagement * 0.18);
-  return { impressions, engagement, clicks, saves };
-}
-
-function isLegacySeededVoice(voice?: Partial<BrandVoice>) {
-  return voice?.name === "Nia Okonkwo" || voice?.handle === "@niaokonkwo";
-}
-
-function clearLegacyMockStudioData() {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = window.localStorage.getItem("lumen-studio-v1");
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as { state?: Partial<StudioState> } | null;
-    const voice = parsed?.state?.voice;
-    if (isLegacySeededVoice(voice)) {
-      window.localStorage.removeItem("lumen-studio-v1");
-    }
-  } catch {
-    // Ignore malformed persisted storage and fall back to a clean starter state.
-  }
-}
-
-clearLegacyMockStudioData();
-
-function snapshot() {
+function emptySnapshot(): StudioSnapshot {
   return {
-    voice: DEFAULT_VOICE,
+    voice: EMPTY_VOICE,
     posts: [],
     deals: [],
     experiments: [],
-    stats: [],
     channels: defaultChannels(),
   };
 }
 
-export const useStudioStore = create<StudioState>()(
-  persist(
-    (set, get) => ({
-      hydrated: false,
-      ...snapshot(),
-      hydrate: () => {
-        if (get().hydrated) return;
-        void useStudioStore.persist.rehydrate();
-        set({ hydrated: true });
-      },
-      resetStudio: () => set({ ...snapshot(), hydrated: true }),
-      setVoice: (voice) => set({ voice: { ...get().voice, ...voice } }),
-      setChannel: (platform, pref) => {
-        const prev = get().channels[platform] ?? { enabled: true };
-        set({
-          channels: {
-            ...get().channels,
-            [platform]: { ...prev, ...pref },
-          },
-        });
-      },
-      upsertPost: (post) => {
-        const posts = get().posts;
-        const idx = posts.findIndex((p) => p.id === post.id);
-        const next =
-          idx === -1
-            ? [post, ...posts]
-            : posts.map((p) => (p.id === post.id ? post : p));
-        set({ posts: next, stats: buildDailyStats(next, get().deals) });
-      },
-      deletePost: (id) => {
-        const posts = get().posts.filter((p) => p.id !== id);
-        set({ posts, stats: buildDailyStats(posts, get().deals) });
-      },
-      setPostStatus: (id, status, when) => {
-        const posts = get().posts.map((p) => {
-          if (p.id !== id) return p;
-          return {
-            ...p,
-            status,
-            scheduledAt: status === "scheduled" ? (when ?? p.scheduledAt) : p.scheduledAt,
-            publishedAt: status === "published" ? (when ?? p.publishedAt ?? stamp()) : p.publishedAt,
-            updatedAt: stamp(),
-          };
-        });
-        set({ posts, stats: buildDailyStats(posts, get().deals) });
-      },
-      publishPost: (id) => {
-        const posts = get().posts.map((p) => {
-          if (p.id !== id) return p;
-          const metrics = p.metrics ?? simulatedMetrics(p);
-          return {
-            ...p,
-            status: "published" as const,
-            publishedAt: stamp(),
-            scheduledAt: p.scheduledAt,
-            metrics,
-            updatedAt: stamp(),
-          };
-        });
-        set({ posts, stats: buildDailyStats(posts, get().deals) });
-      },
-      duplicateToPlatform: (id, platform) => {
-        const source = get().posts.find((p) => p.id === id);
-        if (!source) return id;
-        const copy: Post = {
-          ...source,
-          id: crypto.randomUUID(),
-          platform,
-          body: adaptCopy(source, platform),
-          status: "draft",
-          scheduledAt: null,
-          publishedAt: null,
-          metrics: null,
-          createdAt: stamp(),
-          updatedAt: stamp(),
-        };
-        set({ posts: [copy, ...get().posts] });
-        return copy.id;
-      },
-      syndicatePost: (id, rooms, when) => {
-        const source = get().posts.find((p) => p.id === id);
-        if (!source) return [];
-        const ids: string[] = [];
-        let posts = [...get().posts];
-        const stampNow = stamp();
-        const status: PostStatus = when ? "scheduled" : "draft";
-        for (const room of rooms) {
-          if (room === source.platform) {
-            posts = posts.map((p) =>
-              p.id === source.id
-                ? {
-                    ...p,
-                    status,
-                    scheduledAt: when ?? p.scheduledAt,
-                    updatedAt: stampNow,
-                  }
-                : p,
-            );
-            ids.push(source.id);
-            continue;
-          }
-          const copy: Post = {
-            ...source,
-            id: crypto.randomUUID(),
-            platform: room,
-            body: adaptCopy(source, room),
-            status,
-            scheduledAt: when ?? null,
-            publishedAt: null,
-            metrics: null,
-            createdAt: stampNow,
-            updatedAt: stampNow,
-          };
-          posts = [copy, ...posts];
-          ids.push(copy.id);
-        }
-        set({ posts, stats: buildDailyStats(posts, get().deals) });
-        return ids;
-      },
-      addDeal: (deal) => {
-        const deals = [deal, ...get().deals];
-        set({ deals, stats: buildDailyStats(get().posts, deals) });
-      },
-      updateDeal: (id, patch) => {
-        const deals = get().deals.map((d) => (d.id === id ? { ...d, ...patch } : d));
-        set({ deals, stats: buildDailyStats(get().posts, deals) });
-      },
-      deleteDeal: (id) => {
-        const deals = get().deals.filter((d) => d.id !== id);
-        set({ deals, stats: buildDailyStats(get().posts, deals) });
-      },
-      setExperimentStatus: (id, status, result) => {
-        set({
-          experiments: get().experiments.map((e) =>
-            e.id === id ? { ...e, status, result: result ?? e.result } : e,
-          ),
-        });
-      },
+function queueSave() {
+  void import("@/lib/supabase/sync").then((mod) => mod.schedulePush());
+}
+
+export const useStudioStore = create<StudioState>()((set, get) => ({
+  hydrated: false,
+  ...emptySnapshot(),
+  stats: buildDailyStats([], []),
+  hydrate: () => set({ hydrated: true }),
+  replaceStudio: (snap) =>
+    set({
+      ...snap,
+      ...withStats(snap.posts, snap.deals),
+      hydrated: true,
     }),
-    {
-      name: "lumen-studio-v1",
-      skipHydration: true,
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<StudioState>;
-        return {
-          ...current,
-          ...p,
-          channels: { ...current.channels, ...p.channels },
-        };
+  clearStudio: () => set({ ...emptySnapshot(), ...withStats([], []), hydrated: true }),
+  setVoice: (voice) => {
+    set({ voice: { ...get().voice, ...voice } });
+    queueSave();
+  },
+  setChannel: (platform, pref) => {
+    const prev = get().channels[platform] ?? { enabled: true };
+    set({
+      channels: {
+        ...get().channels,
+        [platform]: { ...prev, ...pref },
       },
-      partialize: (state) => ({
-        voice: state.voice,
-        posts: state.posts,
-        deals: state.deals,
-        experiments: state.experiments,
-        stats: state.stats,
-        channels: state.channels,
-      }),
-    },
-  ),
-);
+    });
+    queueSave();
+  },
+  upsertPost: (post) => {
+    const posts = get().posts;
+    const idx = posts.findIndex((p) => p.id === post.id);
+    const next = idx === -1 ? [post, ...posts] : posts.map((p) => (p.id === post.id ? post : p));
+    set({ posts: next, ...withStats(next, get().deals) });
+    queueSave();
+  },
+  deletePost: (id) => {
+    const posts = get().posts.filter((p) => p.id !== id);
+    set({ posts, ...withStats(posts, get().deals) });
+    queueSave();
+  },
+  setPostStatus: (id, status, when) => {
+    const posts = get().posts.map((p) => {
+      if (p.id !== id) return p;
+      return {
+        ...p,
+        status,
+        scheduledAt: status === "scheduled" ? (when ?? p.scheduledAt) : p.scheduledAt,
+        publishedAt: status === "published" ? (when ?? p.publishedAt ?? stamp()) : p.publishedAt,
+        updatedAt: stamp(),
+      };
+    });
+    set({ posts, ...withStats(posts, get().deals) });
+    queueSave();
+  },
+  publishPost: (id) => {
+    const posts = get().posts.map((p) => {
+      if (p.id !== id) return p;
+      return {
+        ...p,
+        status: "published" as const,
+        publishedAt: stamp(),
+        updatedAt: stamp(),
+      };
+    });
+    set({ posts, ...withStats(posts, get().deals) });
+    queueSave();
+  },
+  duplicateToPlatform: (id, platform) => {
+    const source = get().posts.find((p) => p.id === id);
+    if (!source) return id;
+    const copy: Post = {
+      ...source,
+      id: crypto.randomUUID(),
+      platform,
+      body: adaptCopy(source, platform),
+      status: "draft",
+      scheduledAt: null,
+      publishedAt: null,
+      metrics: null,
+      createdAt: stamp(),
+      updatedAt: stamp(),
+    };
+    const posts = [copy, ...get().posts];
+    set({ posts, ...withStats(posts, get().deals) });
+    queueSave();
+    return copy.id;
+  },
+  syndicatePost: (id, rooms, when) => {
+    const source = get().posts.find((p) => p.id === id);
+    if (!source) return [];
+    const ids: string[] = [];
+    let posts = [...get().posts];
+    const stampNow = stamp();
+    const status: PostStatus = when ? "scheduled" : "draft";
+    for (const room of rooms) {
+      if (room === source.platform) {
+        posts = posts.map((p) =>
+          p.id === source.id
+            ? { ...p, status, scheduledAt: when ?? p.scheduledAt, updatedAt: stampNow }
+            : p,
+        );
+        ids.push(source.id);
+        continue;
+      }
+      const copy: Post = {
+        ...source,
+        id: crypto.randomUUID(),
+        platform: room,
+        body: adaptCopy(source, room),
+        status,
+        scheduledAt: when ?? null,
+        publishedAt: null,
+        metrics: null,
+        createdAt: stampNow,
+        updatedAt: stampNow,
+      };
+      posts = [copy, ...posts];
+      ids.push(copy.id);
+    }
+    set({ posts, ...withStats(posts, get().deals) });
+    queueSave();
+    return ids;
+  },
+  addDeal: (deal) => {
+    const deals = [deal, ...get().deals];
+    set({ deals, ...withStats(get().posts, deals) });
+    queueSave();
+  },
+  updateDeal: (id, patch) => {
+    const deals = get().deals.map((d) => (d.id === id ? { ...d, ...patch } : d));
+    set({ deals, ...withStats(get().posts, deals) });
+    queueSave();
+  },
+  deleteDeal: (id) => {
+    const deals = get().deals.filter((d) => d.id !== id);
+    set({ deals, ...withStats(get().posts, deals) });
+    queueSave();
+  },
+  setExperimentStatus: (id, status, result) => {
+    set({
+      experiments: get().experiments.map((e) =>
+        e.id === id ? { ...e, status, result: result ?? e.result } : e,
+      ),
+    });
+    queueSave();
+  },
+}));
+
+function withStats(posts: Post[], deals: Deal[]): { stats: DailyStat[] } {
+  return { stats: buildDailyStats(posts, deals) };
+}

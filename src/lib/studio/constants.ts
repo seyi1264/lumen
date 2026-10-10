@@ -67,14 +67,3 @@ export const DEAL_TYPE_LABEL: Record<DealType, string> = {
   product: "Product",
   subscription: "Membership",
 };
-
-export const AUDIENCE = {
-  x: 31420,
-  linkedin: 12180,
-  facebook: 8640,
-  instagram: 2940,
-  newsletter: 4860,
-  youtube: 1620,
-} as const;
-
-export const AUDIENCE_TOTAL = Object.values(AUDIENCE).reduce((a, b) => a + b, 0);

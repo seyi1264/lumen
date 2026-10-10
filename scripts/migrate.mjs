@@ -17,12 +17,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
-import {
-  verifiedPostgresSslOptions,
-  withVerifiedPostgresSsl,
-} from "./postgres-connection.mjs";
 
-const databaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   console.log(
     "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
@@ -46,11 +42,7 @@ async function main() {
     return;
   }
 
-  const pool = new pg.Pool({
-    connectionString: withVerifiedPostgresSsl(databaseUrl),
-    max: 1,
-    ssl: verifiedPostgresSslOptions(databaseUrl),
-  });
+  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   const client = await pool.connect();
   try {
     await client.query(

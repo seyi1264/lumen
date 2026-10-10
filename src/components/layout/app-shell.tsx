@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
-  Bot,
   CalendarDays,
   CircleDollarSign,
   LayoutGrid,
@@ -12,9 +11,9 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Toaster } from "sonner";
+import { signOutStudio, SupabaseGate } from "@/components/auth/supabase-gate";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { UserButton } from "@/lib/auth/gates";
 import { duePosts } from "@/lib/studio/channels";
 import { useStudioStore } from "@/lib/studio/store";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,6 @@ import { LumenWordmark } from "./logo";
 
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutGrid },
-  { to: "/autopilot", label: "Autopilot", icon: Bot },
   { to: "/create", label: "Create", icon: PenLine },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/channels", label: "Channels", icon: Radio },
@@ -78,6 +76,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const current = NAV.find((n) => (n.to === "/" ? path === "/" : path.startsWith(n.to)));
 
   return (
+    <>
+    <SupabaseGate>
     <div className="min-h-dvh bg-bg text-fg">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border/80 bg-bg px-3 py-6 md:flex">
         <Link to="/" className="px-3">
@@ -92,11 +92,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="rounded-lg bg-surface px-3 py-3 shadow-[var(--shadow-border)]">
-          <p className="text-sm text-fg">{voice.name}</p>
-          <p className="text-xs text-muted">{voice.handle}</p>
-        </div>
-        <div className="mt-3 border-t border-border/80 px-3 pt-3">
-          <UserButton />
+          <p className="text-sm text-fg">{voice.name || "Your desk"}</p>
+          <p className="text-xs text-muted">{voice.handle || "Signed in"}</p>
+          <button
+            type="button"
+            className="mt-3 text-xs text-subtle hover:text-fg"
+            onClick={() => void signOutStudio()}
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
@@ -122,9 +126,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLink key={item.to} {...item} onClick={() => setOpen(false)} />
             ))}
           </nav>
-          <div className="border-t border-border/80 pt-4">
-            <UserButton />
-          </div>
         </SheetContent>
       </Sheet>
 
@@ -148,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border/80 bg-bg/95 pb-[env(safe-area-inset-bottom)] md:hidden">
         {NAV.filter((n) =>
-          ["/", "/autopilot", "/create", "/calendar", "/channels", "/monitor"].includes(n.to),
+          ["/", "/create", "/calendar", "/channels", "/monitor"].includes(n.to),
         ).map((item) => {
           const active = item.to === "/" ? path === "/" : path.startsWith(item.to);
           const Icon = item.icon;
@@ -168,7 +169,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         })}
       </nav>
 
-      <Toaster
+    </div>
+    </SupabaseGate>
+    <Toaster
         theme="dark"
         position="bottom-right"
         toastOptions={{
@@ -176,6 +179,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             "!bg-surface !text-fg !border-border !shadow-[var(--shadow-border)]",
         }}
       />
-    </div>
+    </>
   );
 }

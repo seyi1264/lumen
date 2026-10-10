@@ -13,7 +13,6 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generateDraft, reshapeCopy } from "@/lib/studio/ai";
 import { PLATFORM_META } from "@/lib/studio/constants";
-import { STUDIO_NOW } from "@/lib/studio/seed";
 import { scoreDraft } from "@/lib/studio/score";
 import { useStudioStore } from "@/lib/studio/store";
 import { PILLARS, PLATFORMS, type Pillar, type Post } from "@/lib/studio/types";
@@ -29,7 +28,7 @@ export const Route = createFileRoute("/_app/create")({
 });
 
 function emptyPost(): Post {
-  const now = formatISO(STUDIO_NOW);
+  const now = formatISO(new Date());
   return {
     id: "draft-new",
     title: "",

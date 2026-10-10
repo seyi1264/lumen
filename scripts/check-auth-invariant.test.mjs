@@ -90,24 +90,16 @@ test("only a divergence warns the smoke verdict", () => {
   }
 });
 
-test("the build side resolves the app's shipped auth-on state", () => {
-  assert.equal(buildAuthEnabled(projectRoot(), {}), true);
+test("the build side resolves the template's shipped app-env", () => {
+  assert.equal(buildAuthEnabled(projectRoot(), {}), false);
   assert.equal(buildAuthEnabled(projectRoot(), { VITE_AUTH_ENABLED: "true" }), true);
 });
 
-test("the CLI reports rather than silently passing when run via a symlink", async (t) => {
+test("the CLI reports rather than silently passing when run via a symlink", async () => {
   // A check whose exit code is the whole signal must never no-op to 0 because
   // process.argv[1] came in through a symlinked path.
   const link = join(mkdtempSync(join(tmpdir(), "auth-invariant-link-")), "scripts");
-  try {
-    symlinkSync(join(projectRoot(), "scripts"), link);
-  } catch (error) {
-    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) {
-      t.skip("symbolic links are unavailable in this environment");
-      return;
-    }
-    throw error;
-  }
+  symlinkSync(join(projectRoot(), "scripts"), link);
   const error = await promisify(execFile)(process.execPath, [
     join(link, "check-auth-invariant.mjs"),
     "--dev-url",

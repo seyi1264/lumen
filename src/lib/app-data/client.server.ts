@@ -30,7 +30,7 @@ type InboundContext = {
   connectorsBase: string | null;
 };
 
-function connectorsBaseFor(publicHost: string | null): string | null {
+export function connectorsBaseFor(publicHost: string | null): string | null {
   const explicit = env("GROK_CONNECTORS_URL");
   if (explicit) return explicit.replace(/\/+$/, "");
 
@@ -38,7 +38,9 @@ function connectorsBaseFor(publicHost: string | null): string | null {
   if (!host || isLoopbackHost(host)) return null;
   if (
     host === "app-builder-testing.com" ||
-    host.endsWith(".app-builder-testing.com")
+    host.endsWith(".app-builder-testing.com") ||
+    host === "grok-sandbox.com" ||
+    host.endsWith(".grok-sandbox.com")
   ) {
     return `https://${CONNECTORS_HOST_STAGING}`;
   }
@@ -278,7 +280,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      return createHash("sha256").update(token).digest("base64url");
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

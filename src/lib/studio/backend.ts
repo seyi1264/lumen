@@ -284,8 +284,9 @@ export const scheduleBufferPost = createServerFn({ method: "POST" })
     }
   });
 
-export const readWorkspaceSignals = createServerFn({ method: "POST" }).handler(
-  async (): Promise<{ ok: true; signals: WorkspaceSignal[] } | { ok: false; error: string }> => {
+export const readWorkspaceSignals = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<{ ok: true; signals: WorkspaceSignal[] } | { ok: false; error: string }> => {
     const timeMin = new Date().toISOString();
     const timeMax = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 
@@ -348,8 +349,7 @@ export const readWorkspaceSignals = createServerFn({ method: "POST" }).handler(
     }
 
     return { ok: true, signals: [] };
-  },
-);
+  });
 
 export const listAutopilotJobs = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

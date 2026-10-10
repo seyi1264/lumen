@@ -43,20 +43,52 @@ export type ReshapeResult = {
   note: string;
 };
 
-function extractJson(text: string): Record<string, unknown> | null {
-  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
-  const raw = fenced?.[1] ?? text;
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
+type JsonSchema = {
+  type: "OBJECT";
+  properties: Record<string, { type: "STRING" | "ARRAY"; items?: { type: "STRING" } }>;
+  required: string[];
+};
+
+const draftSchema: JsonSchema = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    body: { type: "STRING" },
+    cta: { type: "STRING" },
+    tags: { type: "ARRAY", items: { type: "STRING" } },
+    note: { type: "STRING" },
+  },
+  required: ["title", "body", "cta", "tags", "note"],
+};
+
+const reshapeSchema: JsonSchema = {
+  type: "OBJECT",
+  properties: {
+    body: { type: "STRING" },
+    variants: { type: "ARRAY", items: { type: "STRING" } },
+    note: { type: "STRING" },
+  },
+  required: ["body", "variants", "note"],
+};
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseJsonObject(text: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(text);
+    return isJsonObject(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-async function chat(system: string, user: string): Promise<AiOk<{ text: string }> | AiErr> {
+async function chat(
+  system: string,
+  user: string,
+  responseSchema: JsonSchema,
+): Promise<AiOk<{ text: string }> | AiErr> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return {
@@ -66,21 +98,22 @@ async function chat(system: string, user: string): Promise<AiOk<{ text: string }
   }
 
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        model: "gemini-3.8-flash",
-        temperature: 0.7,
-        max_tokens: 700,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1400,
+          responseMimeType: "application/json",
+          responseSchema,
+        },
       }),
     },
   );
@@ -110,9 +143,20 @@ async function chat(system: string, user: string): Promise<AiOk<{ text: string }
   }
 
   const body = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
+    candidates?: {
+      content?: { parts?: { text?: string; thought?: boolean }[] };
+      finishReason?: string;
+    }[];
   };
-  const text = body.choices?.[0]?.message?.content ?? "";
+  const candidate = body.candidates?.[0];
+  if (candidate?.finishReason === "MAX_TOKENS") {
+    return { ok: false, error: "The editor's response was cut off. Try again." };
+  }
+  const text =
+    candidate?.content?.parts
+      ?.filter((part) => !part.thought)
+      .map((part) => part.text ?? "")
+      .join("") ?? "";
   if (!text) return { ok: false, error: "The editor returned a blank page." };
   return { ok: true, text };
 }
@@ -137,10 +181,16 @@ Brief: ${data.brief}
 
 Return JSON: {"title":"","body":"","cta":"","tags":[""],"note":"one sentence on why this will work"}
 Keep body native to the platform. X: one to four short lines, under 280 chars if possible. LinkedIn: 80–180 words. Instagram: 40–90 words, line breaks. Newsletter: 180–320 words. YouTube: spoken outline, 80–140 words.`,
+      draftSchema,
     );
     if (!result.ok) return result;
-    const json = extractJson(result.text);
-    if (!json) return { ok: false, error: "Could not parse the draft. Try a shorter brief." };
+    const json = parseJsonObject(result.text);
+    if (!json) {
+      return {
+        ok: false,
+        error: "The editor returned an invalid response. Try again; a shorter brief may help.",
+      };
+    }
     return {
       ok: true,
       title: String(json.title ?? "Untitled"),
@@ -178,9 +228,10 @@ ${data.body}
 
 Return JSON: {"body":"primary rewrite or thread","variants":["..."],"note":"one editorial sentence"}
 For hooks, put the four lines in variants and leave body as the best one.`,
+      reshapeSchema,
     );
     if (!result.ok) return result;
-    const json = extractJson(result.text);
+    const json = parseJsonObject(result.text);
     if (!json) return { ok: false, error: "The editor hesitated. Try again." };
     return {
       ok: true,

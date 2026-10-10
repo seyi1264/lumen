@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabase } from "@/lib/supabase/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
@@ -31,7 +31,10 @@ function LoginPage() {
     setError(null);
     setNotice(null);
     try {
-      const supabase = getSupabaseClient();
+      const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error("Supabase is not configured. Connect a Supabase project before signing in.");
+      }
       const result =
         mode === "sign-up"
           ? await supabase.auth.signUp({

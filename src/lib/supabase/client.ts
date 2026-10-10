@@ -57,3 +57,11 @@ export function getSupabase(): SupabaseClient | null {
   }
   return client;
 }
+
+export function getSupabaseClient(): SupabaseClient {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase is not configured. Connect a Supabase project before signing in.");
+  }
+  return supabase;
+}

@@ -57,42 +57,56 @@ function extractJson(text: string): Record<string, unknown> | null {
 }
 
 async function chat(system: string, user: string): Promise<AiOk<{ text: string }> | AiErr> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) return { ok: false, error: "The editor is offline in this environment." };
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "The editor is offline. Add GEMINI_API_KEY to Vercel and redeploy.",
+    };
+  }
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gemini-3.8-flash",
+        temperature: 0.7,
+        max_tokens: 700,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
     },
-    body: JSON.stringify({
-      model: "grok-4.5",
-      temperature: 0.7,
-      max_tokens: 700,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
+  );
 
   if (!res.ok) {
     if (res.status === 401) {
       return {
         ok: false,
         error:
-          "xAI rejected the API key (401). Replace XAI_API_KEY in Vercel with an active xAI API key, then redeploy.",
+          "Google rejected the Gemini API key (401). Check GEMINI_API_KEY in Vercel and redeploy.",
       };
     }
     if (res.status === 403) {
       return {
         ok: false,
         error:
-          "xAI denied this request (403). Check API access, model permissions, and billing or credits for the account that owns this key.",
+          "Google denied the Gemini request (403). Check API access, model availability, and project eligibility.",
       };
     }
-    return { ok: false, error: `Editor error ${res.status}` };
+    if (res.status === 429) {
+      return {
+        ok: false,
+        error: "The Gemini free-tier limit was reached. Wait for it to reset and try again.",
+      };
+    }
+    return { ok: false, error: `Gemini API error ${res.status}` };
   }
 
   const body = (await res.json()) as {
